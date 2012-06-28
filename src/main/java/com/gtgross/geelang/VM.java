@@ -7,9 +7,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 
+import com.gtgross.geelang.types.FunctionGeeObject;
 import com.gtgross.geelang.types.GeeObject;
 import com.gtgross.geelang.types.IntegerGeeObject;
-import com.gtgross.geelang.types.IntegerTypeDef;
+import com.gtgross.geelang.types.NativeFunctionGeeObject;
 import com.gtgross.geelang.types.NullGeeObject;
 import com.gtgross.geelang.types.TypeDef;
 
@@ -34,7 +35,6 @@ public class VM {
 
 	public VM(byte[] code) {
 		this.codeBuffer = ByteBuffer.wrap(code);
-		printInstructions(0, 10);
 	}
 
 	private int getCodeInt() throws IOException {
@@ -61,7 +61,29 @@ public class VM {
 		putInPool(nullObj);
 		currentType = nullType;
 
-		TypeDef intType = new IntegerTypeDef();
+		TypeDef intType = new TypeDef(IntegerGeeObject.TYPE_ID, "Int");
+		intType.addFunction(new NativeFunctionGeeObject("add", 1));
+		intType.aliasFunction("add", "+");
+		intType.addFunction(new NativeFunctionGeeObject("subtract", 1));
+		intType.aliasFunction("subtract", "-");
+		intType.addFunction(new NativeFunctionGeeObject("multiply", 1));
+		intType.aliasFunction("multiply", "*");
+		intType.addFunction(new NativeFunctionGeeObject("divide", 1));
+		intType.aliasFunction("divide", "/");
+		intType.addFunction(new NativeFunctionGeeObject("modulus", 1));
+		intType.aliasFunction("modulus", "%");
+		intType.addFunction(new NativeFunctionGeeObject("eq", 1));
+		intType.aliasFunction("eq", "==");
+		intType.addFunction(new NativeFunctionGeeObject("ne", 1));
+		intType.aliasFunction("ne", "!=");
+		intType.addFunction(new NativeFunctionGeeObject("lt", 1));
+		intType.aliasFunction("lt", "<");
+		intType.addFunction(new NativeFunctionGeeObject("lte", 1));
+		intType.aliasFunction("lte", "<=");
+		intType.addFunction(new NativeFunctionGeeObject("gt", 1));
+		intType.aliasFunction("gt", ">");
+		intType.addFunction(new NativeFunctionGeeObject("gte", 1));
+		intType.aliasFunction("gte", ">=");
 		typesByName.put(intType.getName(), intType);
 		types.put(intType.getId(), intType);
 
@@ -86,6 +108,7 @@ public class VM {
 		int offset;
 		int fieldid;
 		int constantIndex;
+		int numParams;
 		String currConstant;
 		GeeObject obj;
 		GeeObject currObj = nullObj;
@@ -100,58 +123,52 @@ public class VM {
 				running = false;
 				break;
 			case ADD:
-				operand1 = popObj();
-				operand2 = popObj();
-				if (IntegerTypeDef.TYPE_ID == operand1.getTypeId()
-						&& IntegerTypeDef.TYPE_ID == operand2.getTypeId()) {
-					pushObj(((IntegerGeeObject) operand1).add(operand2));
+				currObj = popObj();
+				obj = getField(currObj, "+");
+				if (obj instanceof FunctionGeeObject) {
+					callFunction((FunctionGeeObject) obj, currObj);
 				} else {
-					throw new RuntimeException("Not an integer: " + operand1
-							+ " and/or " + operand2);
+					throw new RuntimeException("could not call add: " + currObj);
 				}
 				break;
 			case SUB:
-				operand1 = popObj();
-				operand2 = popObj();
-				if (IntegerTypeDef.TYPE_ID == operand1.getTypeId()
-						&& IntegerTypeDef.TYPE_ID == operand2.getTypeId()) {
-					pushObj(((IntegerGeeObject) operand1).subtract(operand2));
+				currObj = popObj();
+				obj = getField(currObj, "-");
+				if (obj instanceof FunctionGeeObject) {
+					callFunction((FunctionGeeObject) obj, currObj);
 				} else {
-					throw new RuntimeException("Not an integer: " + operand1
-							+ " and/or " + operand2);
+					throw new RuntimeException("could not call subtract: "
+							+ currObj);
 				}
 				break;
 			case MULT:
-				operand1 = popObj();
-				operand2 = popObj();
-				if (IntegerTypeDef.TYPE_ID == operand1.getTypeId()
-						&& IntegerTypeDef.TYPE_ID == operand2.getTypeId()) {
-					pushObj(((IntegerGeeObject) operand1).multiply(operand2));
+				currObj = popObj();
+				obj = getField(currObj, "*");
+				if (obj instanceof FunctionGeeObject) {
+					callFunction((FunctionGeeObject) obj, currObj);
 				} else {
-					throw new RuntimeException("Not an integer: " + operand1
-							+ " and/or " + operand2);
+					throw new RuntimeException("could not call multiply: "
+							+ currObj);
 				}
 				break;
 			case DIV:
-				operand1 = popObj();
-				operand2 = popObj();
-				if (IntegerTypeDef.TYPE_ID == operand1.getTypeId()
-						&& IntegerTypeDef.TYPE_ID == operand2.getTypeId()) {
-					pushObj(((IntegerGeeObject) operand1).divide(operand2));
+				currObj = popObj();
+				obj = getField(currObj, "/");
+				if (obj instanceof FunctionGeeObject) {
+					callFunction((FunctionGeeObject) obj, currObj);
 				} else {
-					throw new RuntimeException("Not an integer: " + operand1
-							+ " and/or " + operand2);
+					throw new RuntimeException("could not call divide: "
+							+ currObj);
 				}
 				break;
 			case MOD:
-				operand1 = popObj();
-				operand2 = popObj();
-				if (IntegerTypeDef.TYPE_ID == operand1.getTypeId()
-						&& IntegerTypeDef.TYPE_ID == operand2.getTypeId()) {
-					pushObj(((IntegerGeeObject) operand1).modulus(operand2));
+				currObj = popObj();
+				obj = getField(currObj, "%");
+				if (obj instanceof FunctionGeeObject) {
+					callFunction((FunctionGeeObject) obj, currObj);
 				} else {
-					throw new RuntimeException("Not an integer: " + operand1
-							+ " and/or " + operand2);
+					throw new RuntimeException("could not call modulus: "
+							+ currObj);
 				}
 				break;
 			case PUSHI:
@@ -162,6 +179,7 @@ public class VM {
 				break;
 			case PUSH:
 				registerNum = getCodeByte();
+				System.out.println("Pushing from reg: " + registerNum);
 				pushObj(getRegister(registerNum));
 				break;
 			case PUSHZ:
@@ -169,6 +187,7 @@ public class VM {
 				break;
 			case POP:
 				registerNum = getCodeByte();
+				System.out.println("Popping to reg: " + registerNum);
 				obj = popObj();
 				setRegister(registerNum, obj);
 				break;
@@ -206,31 +225,26 @@ public class VM {
 						.getValue() ? IntegerGeeObject.getInstance(1) : nullObj);
 				break;
 			case CALLZ:
-				obj = peekObj();
-				if (FunctionGeeObject.TYPE_ID != obj.getTypeId()) {
+				function = (FunctionGeeObject) popObj();
+				if (FunctionGeeObject.TYPE_ID != function.getTypeId()) {
 					throw new RuntimeException("Can't call non-function object");
 				}
-				callStack.push(ip);
-				callStack.push(sp);
-				callStack.push(currObj.getId());
-				callStack.push(currentType.getId());
-				function = (FunctionGeeObject) popObj();
+				currObj = popObj();
 
-				ip = function.getAddress();
+				callFunction(function, currObj);
 				break;
 			case CALL:
 				constantIndex = getCodeByte();
-				callStack.push(ip);
-				callStack.push(sp);
-				callStack.push(currObj.getId());
-				callStack.push(currentType.getId());
 				currConstant = currentType.getConstant(constantIndex);
-				currObj = peekObj();
+				currObj = popObj();
+				if (!types.containsKey(currObj.getTypeId())) {
+					throw new RuntimeException("Could not find type: "
+							+ currObj.getTypeId());
+				}
 				function = types.get(currObj.getTypeId()).getFunction(
 						currConstant);
 
-				ip = function.getAddress();
-				currentType = types.get(currObj.getTypeId());
+				callFunction(function, currObj);
 				break;
 			case RET:
 				obj = popObj();
@@ -290,20 +304,52 @@ public class VM {
 				constantIndex = getCodeByte();
 				obj = popObj();
 				String constant = getConstant(constantIndex);
-				function = types.get(obj.getTypeId()).getFunction(constant);
-				if (function == null) {
-					fieldid = currentType.getField(constant);
-					obj = obj.get(fieldid);
-				} else {
-					obj = function;
-				}
-				pushObj(obj);
+				pushObj(getField(obj, constant));
 				break;
 			default:
 				throw new RuntimeException("Invalid instruction");
 			}
 		}
 		return popObj();
+	}
+
+	private GeeObject getField(GeeObject obj, String constant) {
+		FunctionGeeObject function = types.get(obj.getTypeId()).getFunction(
+				constant);
+		if (function == null) {
+			int fieldid = currentType.getField(constant);
+			obj = obj.get(fieldid);
+		} else {
+			obj = function;
+		}
+		return obj;
+	}
+
+	private void callFunction(FunctionGeeObject function, GeeObject currObj) {
+		if (function == null) {
+			throw new RuntimeException("Could not find function");
+		}
+		if (function instanceof NativeFunctionGeeObject) {
+			NativeFunctionGeeObject nativeFunction = (NativeFunctionGeeObject) function;
+			GeeObject[] params = new GeeObject[nativeFunction.getNumParams()];
+			for (int i = 0; i < nativeFunction.getNumParams(); i++) {
+				params[i] = popObj();
+			}
+			GeeObject retValue = nativeFunction.call(currObj, params);
+			if (retValue == null) {
+				retValue = nullObj;
+			}
+			pushObj(retValue);
+		} else {
+			pushObj(currObj);
+			callStack.push(ip);
+			callStack.push(sp);
+			callStack.push(currObj.getId());
+			callStack.push(currentType.getId());
+
+			ip = function.getAddress();
+			currentType = types.get(currObj.getTypeId());
+		}
 	}
 
 	public void skipToReturn() throws IOException {
@@ -366,22 +412,24 @@ public class VM {
 	}
 
 	private void printDebugInfo(int ip, byte instructionType) {
+		System.out.println("------------------------------------------");
 		System.out.println("Current IP: " + ip);
 		System.out.println("Current SP: " + sp);
 		System.out.println("Current instruction: "
 				+ I.valueOf(instructionType).name());
-		GeeObject obj = peekObj();
-		if (obj != null) {
-			System.out.println(String.format("Top of the stack: %s (type: %s)",
-					obj, types.get(obj.getTypeId()).getName()));
-		} else {
-			System.out.println("Top of the stack is null");
+		System.out.println("Current type: " + currentType.getName());
+		for (int i = 0; i < 8; i++) {
+			if (sp - i >= 0) {
+				GeeObject obj = peekObj(i);
+				if (obj != null) {
+					System.out.println(String.format(
+							"Stack -%d: %s (type: %s)", i, obj,
+							types.get(obj.getTypeId()).getName()));
+				} else {
+					System.out.println("Top of the stack is null");
+				}
+			}
 		}
-		printInstructions(ip, 5);
-	}
-
-	private void printInstructions(int ip, int numInstructions) {
-
 	}
 
 	private String readConstant() throws IOException {
@@ -429,9 +477,13 @@ public class VM {
 		return pool.get(id);
 	}
 
-	private GeeObject peekObj() {
-		int id = stack[sp];
+	private GeeObject peekObj(int offset) {
+		int id = stack[sp - offset];
 		return pool.get(id);
+	}
+
+	private GeeObject peekObj() {
+		return peekObj(0);
 	}
 
 	private void pushObj(GeeObject value) {

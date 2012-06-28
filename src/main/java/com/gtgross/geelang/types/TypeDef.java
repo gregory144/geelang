@@ -3,7 +3,6 @@ package com.gtgross.geelang.types;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.gtgross.geelang.FunctionGeeObject;
 
 public class TypeDef {
 
@@ -55,10 +54,18 @@ public class TypeDef {
 		return constants.get(constantIndex);
 	}
 
+	public void aliasFunction(String orig, String alias) {
+		FunctionGeeObject origFunc = functions.get(orig);
+		functions.put(alias, origFunc);
+	}
+
+	public void addFunction(NativeFunctionGeeObject function) {
+		functions.put(function.getName(), function);
+	}
+
 	public void addFunction(String functionName, int address) {
 		FunctionGeeObject function = new FunctionGeeObject(address);
 		functions.put(functionName, function);
-		fields.put(functionName, function.getId());
 	}
 
 	public FunctionGeeObject getFunction(String functionName) {
@@ -72,5 +79,10 @@ public class TypeDef {
 		int fieldId = this.fieldId++;
 		fields.put(fieldName, fieldId);
 		return fieldId;
+	}
+
+	@Override
+	public String toString() {
+		return "Type: " + this.getName();
 	}
 }

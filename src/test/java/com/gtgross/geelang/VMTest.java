@@ -160,6 +160,7 @@ public class VMTest extends TestCase {
 
 	public void testAnonFunc() throws IOException {
 		code.defz().pushi(1).pushi(2).add().ret();
+		code.pop(0).pushz().push(0);
 		code.callz().halt();
 		GeeObject ret = new VM(code.generate()).run();
 		assertEquals(IntegerGeeObject.getInstance(3), ret);

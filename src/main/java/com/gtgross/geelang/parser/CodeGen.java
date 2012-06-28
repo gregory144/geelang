@@ -2,7 +2,6 @@ package com.gtgross.geelang.parser;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
@@ -66,7 +65,10 @@ public class CodeGen implements NodeVisitor {
 		try {
 			int constantIndex = getConstant(node.getName());
 			code.def(constantIndex);
-			// TODO params?
+			symbols.addSymbol("this", scopeLevel);
+			int reg = getRegister("this");
+			code.pop(reg);
+			node.getParams().accept(this);
 			node.getBody().accept(this);
 			code.ret();
 		} catch (IOException e) {
@@ -91,7 +93,16 @@ public class CodeGen implements NodeVisitor {
 						.getLeftHandSide();
 				lhs.getReceiver().accept(this);
 				int constantIndex = getConstant(lhs.getFieldName());
+				int obj = registers.pop();
+				int field = registers.pop();
+				code.pop(obj);
+				code.pop(field);
+				code.push(field);
+				code.push(obj);
 				code.put(constantIndex);
+				code.push(field);
+				registers.push(obj);
+				registers.push(field);
 			} else {
 				throw new RuntimeException(
 						"Unknown left hand side in assignment statement");
@@ -116,9 +127,9 @@ public class CodeGen implements NodeVisitor {
 
 	@Override
 	public void visit(BinaryOperationNode node) {
-		node.getExpr1().accept(this);
-		node.getExpr2().accept(this);
 		try {
+			node.getExpr2().accept(this);
+			node.getExpr1().accept(this);
 			switch (node.getOp()) {
 			case ADD:
 				code.call(getConstant("+"));
@@ -135,13 +146,12 @@ public class CodeGen implements NodeVisitor {
 			case MODULUS:
 				code.call(getConstant("%"));
 				break;
-
 			case EQ:
 				code.call(getConstant("=="));
 				break;
 			case NE:
-				throw new RuntimeException("Not implemented yet!");
-				// break;
+				code.call(getConstant("!="));
+				break;
 			case LT:
 				code.call(getConstant("<"));
 				break;
@@ -164,7 +174,9 @@ public class CodeGen implements NodeVisitor {
 
 	@Override
 	public void visit(ExpressionListNode node) {
-
+		for (Expression exp : node.getExpressions()) {
+			exp.accept(this);
+		}
 	}
 
 	@Override
@@ -175,6 +187,17 @@ public class CodeGen implements NodeVisitor {
 	@Override
 	public void visit(FunctionCallNode node) {
 		try {
+			System.out.println("generating call with "
+					+ node.getArguments().getExpressions().size() + " params.");
+			if (node.getArguments().getExpressions().size() > 0) {
+				int reg = registers.pop();
+				System.out.println("Saving to register: " + reg);
+				code.pop(reg);
+				node.getArguments().accept(this);
+				System.out.println("Restorig from register: " + reg);
+				code.push(reg);
+				registers.push(reg);
+			}
 			if (node.getFunction() instanceof IdentifierNode) {
 				IdentifierNode function = (IdentifierNode) node.getFunction();
 				Symbol sym = symbols.getSymbol(function.getId());
@@ -188,7 +211,7 @@ public class CodeGen implements NodeVisitor {
 							"Symbol %s is not in scope", function.getId()));
 				}
 			} else if (node.getFunction() instanceof ObjectAccessNode) {
-				System.out.println("Calling!");
+				System.out.println("Calling! " + node.getFunction());
 				node.getFunction().accept(this);
 				call(-1);
 			} else {
@@ -201,27 +224,28 @@ public class CodeGen implements NodeVisitor {
 	}
 
 	private void call(int index) throws IOException {
-			// save registers
-			List<Integer> used = symbols.usedRegisters();
-			for (int i = 0; i < used.size(); i++) {
-				code.push(used.get(i));
-			}
-			if (index != -1) {
-				code.call(index);
-			} else {
-				code.callz();
-			}
-			// save registers
-			for (int i = used.size() - 1; i >= 0; i--) {
-				code.push(used.get(i));
-			}
+		// save registers
+		/*
+		 * List<Integer> used = symbols.usedRegisters(); for (int i = 0; i <
+		 * used.size(); i++) { code.push(used.get(i)); }
+		 */
+		if (index != -1) {
+			code.call(index);
+		} else {
+			code.callz();
+		}
+		// save registers
+		/*
+		 * for (int i = used.size() - 1; i >= 0; i--) { code.push(used.get(i));
+		 * }
+		 */
 	}
 
 	@Override
 	public void visit(IdentifierNode node) {
 		try {
 			Symbol sym = symbols.getSymbol(node.getId());
-			if (sym.isActive()) {
+			if (sym != null && sym.isActive()) {
 				code.push(sym.getRegister());
 			} else {
 				throw new RuntimeException(String.format(
@@ -263,6 +287,16 @@ public class CodeGen implements NodeVisitor {
 
 	@Override
 	public void visit(ParameterListNode node) {
+		for (String name : node.getNames()) {
+			symbols.addSymbol(name, scopeLevel);
+			int register = getRegister(name);
+			System.out.println("Saving " + name + " to register " + register);
+			try {
+				code.pop(register);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	@Override

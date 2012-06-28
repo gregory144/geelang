@@ -29,7 +29,7 @@ public class SymbolTable {
 		List<Integer> regs = new ArrayList<>();
 		for (Symbol symbol : symbols.values()) {
 			if (symbol.isActive()) {
-				symbol.getRegister();
+				regs.add(symbol.getRegister());
 			}
 		}
 		Collections.sort(regs);

@@ -51,6 +51,15 @@ public class FullStackTest extends TestCase {
 		assertEquals(IntegerGeeObject.getInstance(9), ret);
 	}
 
+	public void testDivideInts() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseExpression("20/4");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(5), ret);
+	}
+
 	public void testAddIntsWithUnaryOp() throws ParseException,
 			NumberFormatException, IOException {
 		Node node = parseExpression("-4+10");
@@ -89,20 +98,66 @@ public class FullStackTest extends TestCase {
 
 	public void testIf() throws ParseException, NumberFormatException,
 			IOException {
-		Node node = parseExpression("if 2 { 3; }");
+		Node node = parseExpression("if 2 { 1; }");
 		CodeGen gen = new CodeGen();
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();
-		assertEquals(IntegerGeeObject.getInstance(3), ret);
+		assertEquals(IntegerGeeObject.getInstance(1), ret);
 	}
 
 	public void testIfWithElse() throws ParseException, NumberFormatException,
 			IOException {
-		Node node = parseExpression("if 2 { 3; } else { 4; }");
+		Node node = parseExpression("if 2 { 1; } else { 0; }");
 		CodeGen gen = new CodeGen();
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();
-		assertEquals(IntegerGeeObject.getInstance(3), ret);
+		assertEquals(IntegerGeeObject.getInstance(1), ret);
+	}
+
+	public void testConditional() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseExpression("if 5 == 5 { 1; } else { 0; }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(1), ret);
+	}
+
+	public void testConditionalNotEq() throws ParseException,
+			NumberFormatException,
+			IOException {
+		Node node = parseExpression("if 5 != 5 { 1; } else { 0; }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(0), ret);
+	}
+
+	public void testConditionalLessThan() throws ParseException,
+			NumberFormatException, IOException {
+		Node node = parseExpression("if 4 < 5 { 1; } else { 0; }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(1), ret);
+	}
+
+	public void testConditionalLessThanOrEquals() throws ParseException,
+			NumberFormatException, IOException {
+		Node node = parseExpression("if 5 <= 5 { 1; } else { 0; }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(1), ret);
+	}
+
+	public void testConditionalLessThanOrEqualsFalse() throws ParseException,
+			NumberFormatException, IOException {
+		Node node = parseExpression("if 6 <= 5 { 1; } else { 0; }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(0), ret);
 	}
 
 	public void testAssignment() throws ParseException, NumberFormatException,
@@ -146,6 +201,15 @@ public class FullStackTest extends TestCase {
 		assertEquals(IntegerGeeObject.getInstance(2), ret);
 	}
 
+	public void testMainModuleWithCalc() throws ParseException,
+			NumberFormatException, IOException {
+		Node node = parseModule("module Main { func main() { 2+2; } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(4), ret);
+	}
+
 	public void testProgram() throws ParseException, NumberFormatException,
 			IOException {
 		Node node = parseProgram("module t1 { func f1() { 3; } } module Main { func main() { 2; } }");
@@ -171,5 +235,41 @@ public class FullStackTest extends TestCase {
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();
 		assertEquals(IntegerGeeObject.getInstance(30), ret);
+	}
+
+	public void testCreateObjectWithComplexFunc() throws ParseException,
+			NumberFormatException, IOException {
+		Node node = parseProgram("module T1 { func f1() { 1+100; } } module Main { func main() { x = T1.new; y = x.f1(); y * 10; } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(1010), ret);
+	}
+
+	public void testConvertFtoC() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module Converter { func convert(x) { (((x *100) - 3200)*500/900) / 100; } } module Main { func main() { c = Converter.new; c.convert(90); } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(32), ret);
+	}
+
+	public void testConvertCtoF() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module Converter { func convert(x) { ((x*100*900/500) + 3200) / 100; } } module Main { func main() { c = Converter.new; c.convert(32); } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(89), ret);
+	}
+
+	public void testUseThis() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module Converter { func set(x) { this.y = x; } func get() { this.y; } } module Main { func main() { c = Converter.new; c.set(32); c.get(); } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(32), ret);
 	}
 }
