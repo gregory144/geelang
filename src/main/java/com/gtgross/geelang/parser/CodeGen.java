@@ -2,8 +2,11 @@ package com.gtgross.geelang.parser;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import com.gtgross.geelang.ByteCodeEmitter;
 import com.gtgross.geelang.parser.ast.AssignExpression;
@@ -44,12 +47,12 @@ public class CodeGen implements NodeVisitor {
 	public byte[] generate() {
 		try {
 			Symbol mainModule = symbols.getSymbol("Main");
-			Symbol mainFunction = symbols.getSymbol("Main");
+			Symbol mainFunction = symbols.getSymbol("main");
 			if (mainModule != null && mainFunction != null) {
 				code.type("GeelangBootstrap");
 				code.constant("Main");
 				code.constant("main");
-				code.create(1).call(2);
+				code.pushi(0).create(1).call(2);
 			}
 			code.halt();
 		} catch (IOException e) {
@@ -63,11 +66,13 @@ public class CodeGen implements NodeVisitor {
 		Symbol func = symbols.addSymbol(node.getName(), scopeLevel);
 		scopeLevel++;
 		try {
+			code.comment("CodeGen: FunctionNode: " + node.getName());
 			int constantIndex = getConstant(node.getName());
 			code.def(constantIndex);
 			symbols.addSymbol("this", scopeLevel);
 			int reg = getRegister("this");
-			code.pop(reg);
+			code.comment("CodeGen: peek for FunctionNode: " + node.getName());
+			code.peek(0, reg);
 			node.getParams().accept(this);
 			node.getBody().accept(this);
 			code.ret();
@@ -85,9 +90,7 @@ public class CodeGen implements NodeVisitor {
 			if (node.getLeftHandSide() instanceof IdentifierNode) {
 				IdentifierNode lhs = (IdentifierNode) node.getLeftHandSide();
 				symbols.addSymbol(lhs.getId(), scopeLevel);
-				int register = getRegister(lhs.getId());
-				code.pop(register);
-				code.push(register);
+				code.peek(0, getRegister(lhs.getId()));
 			} else if (node.getLeftHandSide() instanceof ObjectAccessNode) {
 				ObjectAccessNode lhs = (ObjectAccessNode) node
 						.getLeftHandSide();
@@ -115,6 +118,7 @@ public class CodeGen implements NodeVisitor {
 	private int getRegister(String varName) {
 		Symbol sym = symbols.getSymbol(varName);
 		if (!sym.hasRegister()) {
+			// TODO where to free this register again?
 			sym.setRegister(registers.pop());
 		}
 		return sym.getRegister();
@@ -128,7 +132,9 @@ public class CodeGen implements NodeVisitor {
 	@Override
 	public void visit(BinaryOperationNode node) {
 		try {
+			code.comment("Binary Operation: " + node.getOp());
 			node.getExpr2().accept(this);
+			code.pushi(1);
 			node.getExpr1().accept(this);
 			switch (node.getOp()) {
 			case ADD:
@@ -181,38 +187,59 @@ public class CodeGen implements NodeVisitor {
 
 	@Override
 	public void visit(FloatNode node) {
-
+		throw new NotImplementedException();
 	}
 
+	/**
+	 * Calling convention:
+	 * 
+	 * Caller: the function doing the calling Callee: the function getting
+	 * called
+	 * 
+	 * 1. Calling a function from an ID Caller should place on the stack:
+	 * 
+	 * TOP OF STACK Callee Object Number of arguments Argument1 Argument2
+	 * Argument3 ... BOTTOM OF STACK
+	 * 
+	 * 2. Calling a function with dot notation
+	 * 
+	 * TOP OF STACK Function Object Callee Object Number of arguments Argument1
+	 * Argument2 Argument3 ... BOTTOM OF STACK
+	 * 
+	 * The returned value will be placed on the top of the stack.
+	 * 
+	 * At the end of the callee's execution, the stack pointer may have changed.
+	 * 
+	 * The caller is responsible for cleaning the parameters off the stack when
+	 * it's finished.
+	 */
 	@Override
 	public void visit(FunctionCallNode node) {
 		try {
-			System.out.println("generating call with "
+			int reg = registers.pop();
+			code.comment("Saving function call callee to register: " + reg);
+			code.peek(0, reg);
+			node.getArguments().accept(this);
+			code.comment("Generating call with "
 					+ node.getArguments().getExpressions().size() + " params.");
-			if (node.getArguments().getExpressions().size() > 0) {
-				int reg = registers.pop();
-				System.out.println("Saving to register: " + reg);
-				code.pop(reg);
-				node.getArguments().accept(this);
-				System.out.println("Restorig from register: " + reg);
-				code.push(reg);
-				registers.push(reg);
-			}
+			// save the number of arguments
+			code.pushi(node.getArguments().getExpressions().size());
+			// System.out.println("Restoring from register: " + reg);
+			// code.push(reg);
+			// registers.push(reg);
 			if (node.getFunction() instanceof IdentifierNode) {
 				IdentifierNode function = (IdentifierNode) node.getFunction();
+				code.comment("CodeGen: Calling Function: " + function.getId());
 				Symbol sym = symbols.getSymbol(function.getId());
-				if (sym.isActive()) {
-					System.out
-							.println("generating call to " + function.getId());
-					int constantIndex = constants.get(function.getId());
-					call(constantIndex);
-				} else {
-					throw new RuntimeException(String.format(
-							"Symbol %s is not in scope", function.getId()));
-				}
+				assert sym.isActive() : String.format(
+						"Symbol %s is not in scope", function.getId());
+				int constantIndex = constants.get(function.getId());
+				call(constantIndex);
 			} else if (node.getFunction() instanceof ObjectAccessNode) {
-				System.out.println("Calling! " + node.getFunction());
+				// push the target object back on the stack
+				code.push(reg);
 				node.getFunction().accept(this);
+				code.comment("CodeGen: Calling Anonymous Function");
 				call(-1);
 			} else {
 				throw new RuntimeException(
@@ -225,20 +252,21 @@ public class CodeGen implements NodeVisitor {
 
 	private void call(int index) throws IOException {
 		// save registers
-		/*
-		 * List<Integer> used = symbols.usedRegisters(); for (int i = 0; i <
-		 * used.size(); i++) { code.push(used.get(i)); }
-		 */
+		// List<Integer> used = symbols.usedRegisters();
+		// for (int i = 0; i < used.size(); i++) {
+		// code.push(used.get(i));
+		// }
+
 		if (index != -1) {
 			code.call(index);
 		} else {
 			code.callz();
 		}
-		// save registers
-		/*
-		 * for (int i = used.size() - 1; i >= 0; i--) { code.push(used.get(i));
-		 * }
-		 */
+
+		// restore registers
+		// for (int i = used.size() - 1; i >= 0; i--) {
+		// code.push(used.get(i));
+		// }
 	}
 
 	@Override
@@ -246,6 +274,8 @@ public class CodeGen implements NodeVisitor {
 		try {
 			Symbol sym = symbols.getSymbol(node.getId());
 			if (sym != null && sym.isActive()) {
+				code.comment("Getting value of " + node.getId()
+						+ " from register " + sym.getRegister());
 				code.push(sym.getRegister());
 			} else {
 				throw new RuntimeException(String.format(
@@ -274,12 +304,12 @@ public class CodeGen implements NodeVisitor {
 			constants.put(node.getName(), constants.size());
 			code.type(node.getName());
 			node.getFunctions().accept(this);
+			for (String key : constants.keySet()) {
+				code.comment(node.getName() + ", " + key + " = "
+						+ constants.get(key));
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
-		}
-		for (String key : constants.keySet()) {
-			System.out.println(node.getName() + ", " + key + " = "
-					+ constants.get(key));
 		}
 		symbols.deactivateScope(scopeLevel);
 		scopeLevel--;
@@ -287,15 +317,16 @@ public class CodeGen implements NodeVisitor {
 
 	@Override
 	public void visit(ParameterListNode node) {
-		for (String name : node.getNames()) {
-			symbols.addSymbol(name, scopeLevel);
-			int register = getRegister(name);
-			System.out.println("Saving " + name + " to register " + register);
-			try {
+		try {
+			for (int i = 0; i < node.getNames().size(); i++) {
+				String name = node.getNames().get(i);
+				symbols.addSymbol(name, scopeLevel);
+				int register = getRegister(name);
+				code.comment("Saving " + name + " to register " + register);
 				code.pop(register);
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -358,8 +389,7 @@ public class CodeGen implements NodeVisitor {
 	@Override
 	public void visit(CreateObjectNode node) {
 		try {
-			System.out
-					.println("Creating object of type: " + node.getTypeName());
+			code.comment("Creating object of type: " + node.getTypeName());
 			code.create(getConstant(node.getTypeName()));
 		} catch (IOException e) {
 			e.printStackTrace();

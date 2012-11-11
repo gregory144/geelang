@@ -246,9 +246,18 @@ public class FullStackTest extends TestCase {
 		assertEquals(IntegerGeeObject.getInstance(1010), ret);
 	}
 
+	public void testSimpleCallWithArgs() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module Main { func plusOne(x) { x+4; } func main() { this.plusOne(3); } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(7), ret);
+	}
+
 	public void testConvertFtoC() throws ParseException, NumberFormatException,
 			IOException {
-		Node node = parseProgram("module Converter { func convert(x) { (((x *100) - 3200)*500/900) / 100; } } module Main { func main() { c = Converter.new; c.convert(90); } }");
+		Node node = parseProgram("module Converter { func convert(x) { (((x*100) - 3200)*500/900) / 100; } } module Main { func main() { c = Converter.new; c.convert(90); } }");
 		CodeGen gen = new CodeGen();
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();
@@ -264,12 +273,58 @@ public class FullStackTest extends TestCase {
 		assertEquals(IntegerGeeObject.getInstance(89), ret);
 	}
 
+	public void testSetObjectValue() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module EmptyObj { } module Main { func main() { c = EmptyObj.new; c.val = 4; c.val; } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(4), ret);
+	}
+
 	public void testUseThis() throws ParseException, NumberFormatException,
 			IOException {
-		Node node = parseProgram("module Converter { func set(x) { this.y = x; } func get() { this.y; } } module Main { func main() { c = Converter.new; c.set(32); c.get(); } }");
+		Node node = parseProgram("module Main { func main() { this.x = 6; this.x; } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(6), ret);
+	}
+
+	public void testUseThisFromOtherObject() throws ParseException, NumberFormatException,
+			IOException {
+		//Node node = parseProgram("module Converter { func set() { this.y = 5; } func get() { this.y; } } module Main { func main() { c = Converter.new; c.set(); c.get(); } }");
+		Node node = parseProgram("module Converter { func set() { this.y = 5; this.y; } } module Main { func main() { c = Converter.new; c.set(); } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(5), ret);
+	}
+
+	public void testUseThisWithDynamicValue() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module Value { func set(x) { this.val = x; } func get() { this.val; } } module Main { func main() { v = Value.new; v.set(32); v.get(); } }");
 		CodeGen gen = new CodeGen();
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();
 		assertEquals(IntegerGeeObject.getInstance(32), ret);
+	}
+
+	public void testUseThisInMain() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module Main { func main() { this.val = 43; this.val; } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(43), ret);
+	}
+
+	public void testSetObjectValueAndReturn() throws ParseException, NumberFormatException,
+			IOException {
+		Node node = parseProgram("module EmptyObj {} module Converter { func get() { e = EmptyObj.new; e.val = 5; e; } } module Main { func main() { c = Converter.new; r = c.get(); r.val; } }");
+		CodeGen gen = new CodeGen();
+		node.accept(gen);
+		GeeObject ret = new VM(gen.generate()).run();
+		assertEquals(IntegerGeeObject.getInstance(5), ret);
 	}
 }

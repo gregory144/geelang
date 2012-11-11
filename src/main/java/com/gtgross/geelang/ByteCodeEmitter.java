@@ -44,6 +44,13 @@ public class ByteCodeEmitter {
 		write(constantToBytes(constant));
 		return this;
 	}
+	
+
+	public ByteCodeEmitter comment(String comment) throws IOException {
+		write(I.COMM);
+		write(constantToBytes(comment));
+		return this;
+	}
 
 	public ByteCodeEmitter create(byte value) throws IOException {
 		write(I.NEW);
@@ -159,6 +166,19 @@ public class ByteCodeEmitter {
 
 	public int offset(int label) {
 		return byteCount - labels.get(label);
+	}
+
+	public ByteCodeEmitter peek(int offset, byte value) throws IOException {
+		write(I.PEEK);
+		ByteBuffer b = ByteBuffer.allocate(4);
+		b.putInt(offset);
+		write(b.array());
+		write(value);
+		return this;
+	}
+
+	public ByteCodeEmitter peek(int offset, int value) throws IOException {
+		return peek(offset, (byte)value);
 	}
 
 	public ByteCodeEmitter pop(byte value) throws IOException {
