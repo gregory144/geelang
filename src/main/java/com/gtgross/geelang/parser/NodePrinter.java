@@ -15,7 +15,7 @@ import com.gtgross.geelang.parser.ast.FunctionNode;
 import com.gtgross.geelang.parser.ast.IdentifierNode;
 import com.gtgross.geelang.parser.ast.IfNode;
 import com.gtgross.geelang.parser.ast.IntegerNode;
-import com.gtgross.geelang.parser.ast.ModuleListNode;
+import com.gtgross.geelang.parser.ast.ProgramNode;
 import com.gtgross.geelang.parser.ast.ModuleNode;
 import com.gtgross.geelang.parser.ast.NullNode;
 import com.gtgross.geelang.parser.ast.ObjectAccessNode;
@@ -157,9 +157,12 @@ public class NodePrinter implements NodeVisitor {
 	}
 
 	@Override
-	public void visit(ModuleListNode node) {
+	public void visit(ProgramNode node) {
 		for (ModuleNode module : node.getModuleList()) {
 			module.accept(this);
+		}
+		for (Statement stmt : node.getMain()) {
+			stmt.accept(this);
 		}
 	}
 

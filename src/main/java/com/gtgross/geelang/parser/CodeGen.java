@@ -21,7 +21,7 @@ import com.gtgross.geelang.parser.ast.FunctionNode;
 import com.gtgross.geelang.parser.ast.IdentifierNode;
 import com.gtgross.geelang.parser.ast.IfNode;
 import com.gtgross.geelang.parser.ast.IntegerNode;
-import com.gtgross.geelang.parser.ast.ModuleListNode;
+import com.gtgross.geelang.parser.ast.ProgramNode;
 import com.gtgross.geelang.parser.ast.ModuleNode;
 import com.gtgross.geelang.parser.ast.NullNode;
 import com.gtgross.geelang.parser.ast.ObjectAccessNode;
@@ -46,14 +46,14 @@ public class CodeGen implements NodeVisitor {
 
 	public byte[] generate() {
 		try {
-			Symbol mainModule = symbols.getSymbol("Main");
+			/*Symbol mainModule = symbols.getSymbol("Main");
 			Symbol mainFunction = symbols.getSymbol("main");
 			if (mainModule != null && mainFunction != null) {
 				code.type("GeelangBootstrap");
 				code.constant("Main");
 				code.constant("main");
 				code.pushi(0).create(1).call(2);
-			}
+			}*/
 			code.halt();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -70,9 +70,6 @@ public class CodeGen implements NodeVisitor {
 			int constantIndex = getConstant(node.getName());
 			code.def(constantIndex);
 			symbols.addSymbol("this", scopeLevel);
-			int reg = getRegister("this");
-			code.comment("CodeGen: peek for FunctionNode: " + node.getName());
-			code.peek(0, reg);
 			node.getParams().accept(this);
 			node.getBody().accept(this);
 			code.ret();
@@ -238,6 +235,7 @@ public class CodeGen implements NodeVisitor {
 			} else if (node.getFunction() instanceof ObjectAccessNode) {
 				// push the target object back on the stack
 				code.push(reg);
+				registers.push(reg);
 				node.getFunction().accept(this);
 				code.comment("CodeGen: Calling Anonymous Function");
 				call(-1);
@@ -338,9 +336,12 @@ public class CodeGen implements NodeVisitor {
 	}
 
 	@Override
-	public void visit(ModuleListNode node) {
+	public void visit(ProgramNode node) {
 		for (ModuleNode module : node.getModuleList()) {
 			module.accept(this);
+		}
+		for (Statement stmt : node.getMain()) {
+			stmt.accept(this);
 		}
 	}
 

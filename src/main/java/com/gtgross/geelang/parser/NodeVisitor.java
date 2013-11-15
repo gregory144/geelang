@@ -12,7 +12,7 @@ import com.gtgross.geelang.parser.ast.FunctionNode;
 import com.gtgross.geelang.parser.ast.IdentifierNode;
 import com.gtgross.geelang.parser.ast.IfNode;
 import com.gtgross.geelang.parser.ast.IntegerNode;
-import com.gtgross.geelang.parser.ast.ModuleListNode;
+import com.gtgross.geelang.parser.ast.ProgramNode;
 import com.gtgross.geelang.parser.ast.ModuleNode;
 import com.gtgross.geelang.parser.ast.NullNode;
 import com.gtgross.geelang.parser.ast.ObjectAccessNode;
@@ -57,7 +57,7 @@ public interface NodeVisitor {
 
 	void visit(Expression node);
 
-	void visit(ModuleListNode moduleListNode);
+	void visit(ProgramNode program);
 
 	void visit(IfNode ifNode);
 

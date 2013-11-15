@@ -17,23 +17,17 @@ public class FullStackTest extends TestCase {
 		GeelangParser p = new GeelangParser(new StringReader(text));
 		return p.Expression();
 	}
-
-	private Node parseFunction(String text) throws NumberFormatException,
-			ParseException, IOException {
+	
+	private Node parseBlock(String text) throws NumberFormatException,
+		ParseException, IOException {
 		GeelangParser p = new GeelangParser(new StringReader(text));
-		return p.Function();
+		return p.Block();
 	}
 
 	private Node parseModule(String text) throws NumberFormatException,
 			ParseException, IOException {
 		GeelangParser p = new GeelangParser(new StringReader(text));
 		return p.Module();
-	}
-
-	private Node parseStatement(String text) throws NumberFormatException,
-			ParseException, IOException {
-		GeelangParser p = new GeelangParser(new StringReader(text));
-		return p.Statement();
 	}
 
 	private Node parseProgram(String text) throws NumberFormatException,
@@ -239,7 +233,7 @@ public class FullStackTest extends TestCase {
 
 	public void testCreateObjectWithComplexFunc() throws ParseException,
 			NumberFormatException, IOException {
-		Node node = parseProgram("module T1 { func f1() { 1+100; } } module Main { func main() { x = T1.new; y = x.f1(); y * 10; } }");
+		Node node = parseProgram("module T1 { func f1() { 1+100; } } x = T1.new; y = x.f1(); y * 10;");
 		CodeGen gen = new CodeGen();
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();
@@ -248,16 +242,16 @@ public class FullStackTest extends TestCase {
 
 	public void testSimpleCallWithArgs() throws ParseException, NumberFormatException,
 			IOException {
-		Node node = parseProgram("module Main { func plusOne(x) { x+4; } func main() { this.plusOne(3); } }");
+		Node node = parseProgram("module e { func plusOne(x) { x+4; } } y = e.new; y.plusOne(5);");
 		CodeGen gen = new CodeGen();
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();
-		assertEquals(IntegerGeeObject.getInstance(7), ret);
+		assertEquals(IntegerGeeObject.getInstance(9), ret);
 	}
 
 	public void testConvertFtoC() throws ParseException, NumberFormatException,
 			IOException {
-		Node node = parseProgram("module Converter { func convert(x) { (((x*100) - 3200)*500/900) / 100; } } module Main { func main() { c = Converter.new; c.convert(90); } }");
+		Node node = parseProgram("module Converter { func convert(x) { (((x*100) - 3200)*500/900) / 100; } } c = Converter.new; c.convert(90);");
 		CodeGen gen = new CodeGen();
 		node.accept(gen);
 		GeeObject ret = new VM(gen.generate()).run();

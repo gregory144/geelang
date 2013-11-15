@@ -386,8 +386,6 @@ public class VM {
 			currentType = types.get(currObj.getTypeId());
 			System.out.println("CALL: Assigning current type: "
 					+ currentType.getName());
-
-			pushObj(currObj); // place the current object back on the stack
 		}
 	}
 
